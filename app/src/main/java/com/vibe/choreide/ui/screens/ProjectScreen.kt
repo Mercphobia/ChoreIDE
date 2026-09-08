@@ -35,6 +35,10 @@ import com.vibe.choreide.ui.components.FileTreeItem
 import com.vibe.choreide.ui.components.GlassPanel
 import com.vibe.choreide.workspace.FileRepository
 import com.vibe.choreide.workspace.ProjectManager
+import com.vibe.choreide.system.RootDeployer
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 @Composable
 fun ProjectScreen(
@@ -118,6 +122,38 @@ fun ProjectScreen(
                         style = MaterialTheme.typography.titleMedium
                     )
                 }
+            }
+        }
+
+        var deployLog by remember { mutableStateOf("") }
+        val scope = remember { CoroutineScope(Dispatchers.Main) }
+
+        state.currentProject?.let { project ->
+            Button(
+                onClick = {
+                    scope.launch {
+                        deployLog = "Deploying...\n"
+                        val apk = java.io.File(project, "app-debug.apk")
+                        val result = RootDeployer.deployApk(
+                            sourceApk = apk,
+                            targetSystemPath = "/system/priv-app/SystemUI/SystemUI.apk",
+                            targetPackage = "com.android.systemui",
+                            onLog = { line -> deployLog += line + "\n" }
+                        )
+                        deployLog += if (result.success) "[ok] done\n" else "[fail] see log\n"
+                    }
+                },
+                modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
+            ) {
+                Text("Deploy to System (root)")
+            }
+            if (deployLog.isNotEmpty()) {
+                Text(
+                    deployLog,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.padding(top = 4.dp)
+                )
             }
         }
 
