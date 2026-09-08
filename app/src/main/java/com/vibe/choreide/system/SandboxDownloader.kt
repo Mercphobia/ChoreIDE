@@ -35,9 +35,15 @@ object SandboxDownloader {
     // Tool specifications
     // ------------------------------------------------------------------
 
-    private const val APKTOOL_URL =
+    private const val APKTOOL_LATEST_API =
+        "https://api.github.com/repos/iBotPeaches/Apktool/releases/latest"
+    private const val JADX_LATEST_API =
+        "https://api.github.com/repos/skylot/jadx/releases/latest"
+
+    // Direct fallbacks in case the GitHub API is rate-limited
+    private const val APKTOOL_FALLBACK_URL =
         "https://github.com/ibotpeaches/Apktool/releases/latest/download/apktool.jar"
-    private const val JADX_URL =
+    private const val JADX_FALLBACK_URL =
         "https://github.com/skylot/jadx/releases/latest/download/jadx-all.jar"
     private const val ECJ_URL =
         "https://repo1.maven.org/maven2/org/eclipse/jdt/ecj/3.33.0/ecj-3.33.0.jar"
@@ -91,10 +97,14 @@ object SandboxDownloader {
         // Each step gets an equal share of the progress bar
         val steps: List<Pair<String, suspend () -> Boolean>> = listOf(
             "apktool.jar" to {
-                fetch(APKTOOL_URL, File(pluginsDir(context), "apktool.jar"), onProgress)
+                val url = resolveGithubReleaseAsset(APKTOOL_LATEST_API, "apktool", ".jar")
+                    ?: APKTOOL_FALLBACK_URL
+                fetch(url, File(pluginsDir(context), "apktool.jar"), onProgress)
             },
             "jadx-all.jar" to {
-                fetch(JADX_URL, File(pluginsDir(context), "jadx-all.jar"), onProgress)
+                val url = resolveGithubReleaseAsset(JADX_LATEST_API, "jadx", ".jar")
+                    ?: JADX_FALLBACK_URL
+                fetch(url, File(pluginsDir(context), "jadx-all.jar"), onProgress)
             },
             "ecj.jar" to {
                 fetch(ECJ_URL, File(binDir(context), "ecj.jar"), onProgress)
@@ -173,6 +183,34 @@ object SandboxDownloader {
         } catch (t: Throwable) {
             target.delete()
             false
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // GitHub latest-release asset resolver
+    // ------------------------------------------------------------------
+
+    /**
+     * Queries the GitHub latest-release API and picks the browser_download_url
+     * of the first asset whose name contains [nameContains] and ends with
+     * [suffix]. Returns null on any failure (caller falls back to a static URL).
+     */
+    private fun resolveGithubReleaseAsset(
+        apiUrl: String,
+        nameContains: String,
+        suffix: String
+    ): String? {
+        return try {
+            val json = httpGet(apiUrl) ?: return null
+            // Minimal JSON scraping - avoids a full JSON dependency for one field
+            val regex = Regex("\"browser_download_url\"\s*:\s*\"([^\"]+)\"")
+            regex.findAll(json)
+                .map { it.groupValues[1] }
+                .firstOrNull {
+                    it.contains(nameContains, ignoreCase = true) && it.endsWith(suffix)
+                }
+        } catch (t: Throwable) {
+            null
         }
     }
 
