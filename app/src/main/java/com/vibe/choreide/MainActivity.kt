@@ -13,6 +13,8 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.launch
 import com.topjohnwu.superuser.Shell
 import com.vibe.choreide.ui.components.BottomNavBar
 import com.vibe.choreide.ui.screens.BuildScreen
@@ -20,7 +22,8 @@ import com.vibe.choreide.ui.screens.EditorScreen
 import com.vibe.choreide.ui.screens.MockupScreen
 import com.vibe.choreide.ui.screens.ProjectScreen
 import com.vibe.choreide.ui.screens.TerminalScreen
-import com.vibe.choreide.ui.screens.WizardScreen
+import com.vibe.choreide.ui.screens.ProjectWizardScreen
+import com.vibe.choreide.system.AssetManagerHelper
 import com.vibe.choreide.ui.theme.ChoreIDETheme
 import org.lsposed.hiddenapibypass.HiddenApiBypass
 
@@ -44,6 +47,11 @@ class MainActivity : ComponentActivity() {
             HiddenApiBypass.addHiddenApiExemptions("")
         } catch (t: Throwable) {
             // Non-fatal: hidden API bypass is best-effort
+        }
+
+        // Zero-download first launch: extract bundled toolchain, plugins and libs
+        lifecycleScope.launch {
+            AssetManagerHelper.ensureExtracted(applicationContext)
         }
 
         setContent {
@@ -73,7 +81,7 @@ class MainActivity : ComponentActivity() {
                             startDestination = "wizard"
                         ) {
                             composable("wizard") {
-                                WizardScreen(onProjectCreated = {
+                                ProjectWizardScreen(onProjectCreated = {
                                     navController.navigate("project") {
                                         popUpTo("wizard") { inclusive = true }
                                     }
