@@ -2,6 +2,7 @@ package com.vibe.choreide.ui.screens
 
 import android.widget.FrameLayout
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -15,6 +16,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.vibe.choreide.system.AospMockupInflater
+import androidx.compose.material3.FilterChip
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.getValue
 import com.vibe.choreide.workspace.ProjectManager
 
 @Composable
@@ -23,7 +29,28 @@ fun MockupScreen(
 ) {
     val state by projectManager.state.collectAsState()
 
+    var showLogcat by remember { mutableStateOf(false) }
+
     Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+        Row {
+            FilterChip(
+                selected = !showLogcat,
+                onClick = { showLogcat = false },
+                label = { Text("Mockup") }
+            )
+            FilterChip(
+                selected = showLogcat,
+                onClick = { showLogcat = true },
+                label = { Text("Logcat") },
+                modifier = Modifier.padding(start = 8.dp)
+            )
+        }
+
+        if (showLogcat) {
+            LogcatScreen()
+            return@Column
+        }
+
         Text(
             state.currentFile?.name ?: "Open an XML layout to preview",
             color = MaterialTheme.colorScheme.onBackground,

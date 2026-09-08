@@ -6,6 +6,10 @@ import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
@@ -23,6 +27,9 @@ import com.vibe.choreide.ui.screens.MockupScreen
 import com.vibe.choreide.ui.screens.ProjectScreen
 import com.vibe.choreide.ui.screens.TerminalScreen
 import com.vibe.choreide.ui.screens.ProjectWizardScreen
+import com.vibe.choreide.ui.screens.LogcatScreen
+import com.vibe.choreide.ui.screens.StartupWizardScreen
+import com.vibe.choreide.system.SandboxManager
 import com.vibe.choreide.system.AssetManagerHelper
 import com.vibe.choreide.ui.theme.ChoreIDETheme
 import org.lsposed.hiddenapibypass.HiddenApiBypass
@@ -56,6 +63,13 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             ChoreIDETheme {
+                var sandboxReady by remember {
+                    mutableStateOf(SandboxManager.isSandboxReady(applicationContext))
+                }
+                if (!sandboxReady) {
+                    StartupWizardScreen(onFinished = { sandboxReady = true })
+                    return@ChoreIDETheme
+                }
                 val navController = rememberNavController()
                 val backStackEntry by navController.currentBackStackEntryAsState()
                 val currentRoute = backStackEntry?.destination?.route ?: "editor"
@@ -92,6 +106,7 @@ class MainActivity : ComponentActivity() {
                             composable("terminal") { TerminalScreen() }
                             composable("preview") { MockupScreen() }
                             composable("build") { BuildScreen() }
+                            composable("logcat") { LogcatScreen() }
                         }
                     }
                 }

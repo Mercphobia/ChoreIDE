@@ -8,14 +8,20 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
+/**
+ * Root-level system deployer built on libsu.
+ *
+ * Safety contract (anti-bootloop):
+ *  1. Verify root first - refuse silently when not granted.
+ *  2. Always back up the existing target into /sdcard/ChoreBackup/<ts>/
+ *     together with an executable restore.sh rescue script.
+ *  3. Only then remount /system rw, push, chmod 644, and restart the target.
+ */
 object RootDeployer {
 
     const val BACKUP_ROOT = "/sdcard/ChoreBackup"
 
-    data class DeployResult(
-        val success: Boolean,
-        val log: String
-    )
+    data class DeployResult(val success: Boolean, val log: String)
 
     fun isRootAvailable(): Boolean = try {
         Shell.isAppGrantedRoot() == true
@@ -27,6 +33,7 @@ object RootDeployer {
         sourceApk: File,
         targetSystemPath: String,
         targetPackage: String,
+        softReboot: Boolean = false,
         onLog: (String) -> Unit
     ): DeployResult = withContext(Dispatchers.IO) {
         val log = StringBuilder()
@@ -37,11 +44,11 @@ object RootDeployer {
 
         try {
             if (!isRootAvailable()) {
-                emit("[error] Root access not granted")
+                emit("[error] root access not granted")
                 return@withContext DeployResult(false, log.toString())
             }
             if (!sourceApk.exists()) {
-                emit("[error] Source APK not found: ${sourceApk.absolutePath}")
+                emit("[error] source not found: ${sourceApk.absolutePath}")
                 return@withContext DeployResult(false, log.toString())
             }
 
@@ -50,55 +57,73 @@ object RootDeployer {
             val targetFile = File(targetSystemPath)
             val targetName = targetFile.name
 
-            // Anti-bootloop: backup existing target first
-            emit("[1/5] Creating backup at $backupDir")
+            emit("[1/6] backup -> $backupDir")
             Shell.cmd("mkdir -p $backupDir").exec()
             if (targetFile.exists()) {
                 Shell.cmd("cp $targetSystemPath $backupDir/$targetName").exec()
-                emit("      Backed up $targetName")
+                emit("      saved $targetName")
             } else {
-                emit("      No existing target; fresh install")
+                emit("      fresh install (no existing target)")
             }
 
-            // Write rescue script for bootloop recovery
-            val rescueScript = File(backupDir, "restore.sh")
-            emit("[2/5] Writing rescue script")
+            emit("[2/6] writing rescue script")
             Shell.cmd(
-                "cat > ${rescueScript.absolutePath} << 'EOF'\n" +
-                        "#!/system/bin/sh\n" +
-                        "mount -o rw,remount /system\n" +
-                        "cp $backupDir/$targetName $targetSystemPath\n" +
-                        "chmod 644 $targetSystemPath\n" +
-                        "killall $targetPackage\n" +
-                        "echo Restored $targetName\n" +
-                        "EOF"
+                "printf '%s\n' '#!/system/bin/sh' " +
+                        "'mount -o rw,remount /system' " +
+                        "'cp $backupDir/$targetName $targetSystemPath' " +
+                        "'chmod 644 $targetSystemPath' " +
+                        "'killall $targetPackage' " +
+                        "'echo restored' > $backupDir/restore.sh"
             ).exec()
-            Shell.cmd("chmod 755 ${rescueScript.absolutePath}").exec()
+            Shell.cmd("chmod 755 $backupDir/restore.sh").exec()
 
-            emit("[3/5] Remounting /system as read-write")
+            emit("[3/6] remount /system rw")
             val mount = Shell.cmd("mount -o rw,remount /system").exec()
             if (!mount.isSuccess) {
-                emit("[error] Failed to remount /system")
+                emit("[error] remount failed: ${mount.err.joinToString()}")
                 return@withContext DeployResult(false, log.toString())
             }
 
-            emit("[4/5] Pushing ${sourceApk.name} to $targetSystemPath")
+            emit("[4/6] push ${sourceApk.name}")
             val push = Shell.cmd(
                 "cp ${sourceApk.absolutePath} $targetSystemPath && chmod 644 $targetSystemPath"
             ).exec()
             if (!push.isSuccess) {
-                emit("[error] Push failed: ${push.err.joinToString()}")
+                emit("[error] push failed: ${push.err.joinToString()}")
                 return@withContext DeployResult(false, log.toString())
             }
 
-            emit("[5/5] Restarting $targetPackage")
+            emit("[5/6] restart $targetPackage")
             Shell.cmd("killall $targetPackage").exec()
 
-            emit("[done] Deployment complete. Rescue script: ${rescueScript.absolutePath}")
+            if (softReboot) {
+                emit("[6/6] soft reboot (zygote restart)")
+                Shell.cmd("setprop ctl.restart zygote").exec()
+            } else {
+                emit("[6/6] soft reboot skipped")
+            }
+
+            emit("[done] deployed. rescue: $backupDir/restore.sh")
             DeployResult(true, log.toString())
         } catch (t: Throwable) {
             emit("[error] ${t.message}")
             DeployResult(false, log.toString())
+        }
+    }
+
+    /** Trigger a soft reboot (restart zygote) without deploying anything. */
+    suspend fun softReboot(onLog: (String) -> Unit): Boolean = withContext(Dispatchers.IO) {
+        try {
+            if (!isRootAvailable()) {
+                onLog("[error] root not granted")
+                return@withContext false
+            }
+            onLog("[root] restarting zygote (soft reboot)")
+            Shell.cmd("setprop ctl.restart zygote").exec()
+            true
+        } catch (t: Throwable) {
+            onLog("[error] ${t.message}")
+            false
         }
     }
 }

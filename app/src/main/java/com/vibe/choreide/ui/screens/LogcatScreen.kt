@@ -9,10 +9,11 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.Button
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -20,34 +21,59 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.vibe.choreide.system.SandboxedTerminal
+import com.vibe.choreide.system.LogcatManager
 import kotlinx.coroutines.rememberCoroutineScope
 
 @Composable
-fun TerminalScreen() {
-    val context = LocalContext.current
-    val terminal = remember { SandboxedTerminal(context.applicationContext) }
-    val lines by terminal.lines.collectAsState()
-    val running by terminal.running.collectAsState()
-    var input by remember { mutableStateOf("") }
+fun LogcatScreen() {
+    val manager = remember { LogcatManager() }
+    val lines by manager.lines.collectAsState()
+    val active by manager.active.collectAsState()
+    var errorsOnly by remember { mutableStateOf(true) }
     val scope = rememberCoroutineScope()
     val listState = rememberLazyListState()
 
-    // Auto-scroll to bottom on new output
     LaunchedEffect(lines.size) {
         if (lines.isNotEmpty()) listState.animateScrollToItem(lines.size - 1)
     }
 
+    DisposableEffect(Unit) {
+        onDispose { manager.stop() }
+    }
+
     Column(modifier = Modifier.fillMaxSize().padding(12.dp)) {
+        Row(modifier = Modifier.fillMaxWidth()) {
+            FilterChip(
+                selected = errorsOnly,
+                onClick = { errorsOnly = !errorsOnly },
+                label = { Text("Errors/FC only") }
+            )
+            Button(
+                onClick = {
+                    if (active) manager.stop()
+                    else manager.start(scope, filterTag = "", errorsOnly = errorsOnly)
+                },
+                modifier = Modifier.padding(start = 8.dp)
+            ) {
+                Text(if (active) "Stop" else "Start")
+            }
+            Button(
+                onClick = { manager.clear() },
+                modifier = Modifier.padding(start = 8.dp)
+            ) {
+                Text("Clear")
+            }
+        }
+
         LazyColumn(
             state = listState,
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(1f)
+                .padding(top = 8.dp)
         ) {
             items(lines) { line ->
                 Text(
@@ -55,28 +81,8 @@ fun TerminalScreen() {
                     color = if (line.isError) MaterialTheme.colorScheme.error
                     else MaterialTheme.colorScheme.onBackground,
                     fontFamily = FontFamily.Monospace,
-                    fontSize = 12.sp
+                    fontSize = 10.sp
                 )
-            }
-        }
-
-        Row(modifier = Modifier.fillMaxWidth()) {
-            OutlinedTextField(
-                value = input,
-                onValueChange = { input = it },
-                modifier = Modifier.weight(1f),
-                singleLine = true,
-                placeholder = { Text("command (aapt2, dalvikvm, logcat, ...)") }
-            )
-            Button(
-                onClick = {
-                    terminal.execute(input, scope)
-                    input = ""
-                },
-                modifier = Modifier.padding(start = 8.dp),
-                enabled = !running
-            ) {
-                Text("Run")
             }
         }
     }
