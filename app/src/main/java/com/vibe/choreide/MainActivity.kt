@@ -80,7 +80,7 @@ class MainActivity : ComponentActivity() {
                                 })
                             }
                             composable("editor") { EditorScreen() }
-                            composable("project") { ProjectScreen() }
+                            composable("project") { ProjectScreen(onOpenFile = { navController.navigate("editor") }) }
                             composable("terminal") { TerminalScreen() }
                             composable("preview") { MockupScreen() }
                             composable("build") { BuildScreen() }
