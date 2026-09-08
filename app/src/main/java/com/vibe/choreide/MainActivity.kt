@@ -29,7 +29,7 @@ import com.vibe.choreide.ui.screens.TerminalScreen
 import com.vibe.choreide.ui.screens.ProjectWizardScreen
 import com.vibe.choreide.ui.screens.LogcatScreen
 import com.vibe.choreide.ui.screens.StartupWizardScreen
-import com.vibe.choreide.system.SandboxManager
+import com.vibe.choreide.system.SandboxDownloader
 import com.vibe.choreide.system.AssetManagerHelper
 import com.vibe.choreide.ui.theme.ChoreIDETheme
 import org.lsposed.hiddenapibypass.HiddenApiBypass
@@ -64,7 +64,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             ChoreIDETheme {
                 var sandboxReady by remember {
-                    mutableStateOf(SandboxManager.isSandboxReady(applicationContext))
+                    mutableStateOf(SandboxDownloader.isReady(applicationContext))
                 }
                 if (!sandboxReady) {
                     StartupWizardScreen(onFinished = { sandboxReady = true })

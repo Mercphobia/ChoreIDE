@@ -18,7 +18,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import com.vibe.choreide.system.SandboxManager
+import com.vibe.choreide.system.SandboxDownloader
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -69,7 +69,7 @@ fun StartupWizardScreen(
                 if (running) return@Button
                 running = true
                 scope.launch {
-                    val report = SandboxManager.setup(context) { msg, pct ->
+                    val report = SandboxDownloader.downloadAll(context) { pct, msg ->
                         status = msg
                         progress = pct
                     }

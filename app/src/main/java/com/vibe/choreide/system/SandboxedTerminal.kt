@@ -20,6 +20,9 @@ import java.io.File
  */
 class SandboxedTerminal(private val context: Context) {
 
+    private fun projectsDir(): File =
+        File(context.filesDir, "projects").apply { mkdirs() }
+
     data class TerminalLine(val text: String, val isError: Boolean = false)
 
     private val _lines = MutableStateFlow<List<TerminalLine>>(emptyList())
@@ -28,14 +31,14 @@ class SandboxedTerminal(private val context: Context) {
     private val _running = MutableStateFlow(false)
     val running: StateFlow<Boolean> = _running.asStateFlow()
 
-    var workingDir: File = SandboxManager.projectsDir(context)
+    var workingDir: File = projectsDir()
         private set
 
     fun setProject(projectName: String?) {
         workingDir = if (projectName.isNullOrBlank()) {
-            SandboxManager.projectsDir(context)
+            projectsDir()
         } else {
-            File(SandboxManager.projectsDir(context), projectName)
+            File(projectsDir(), projectName)
         }
         workingDir.mkdirs()
     }
@@ -95,11 +98,11 @@ class SandboxedTerminal(private val context: Context) {
             // Environment: sandbox bin first on PATH, plus HOME inside sandbox
             val env = pb.environment()
             val basePath = env["PATH"].orEmpty()
-            env["PATH"] = SandboxManager.binDir(context).absolutePath +
+            env["PATH"] = SandboxDownloader.binDir(context).absolutePath +
                     File.pathSeparator + basePath
             env["HOME"] = context.filesDir.absolutePath
             env["TMPDIR"] = File(context.filesDir, "tmp").apply { mkdirs() }.absolutePath
-            env["LD_LIBRARY_PATH"] = SandboxManager.binDir(context).absolutePath
+            env["LD_LIBRARY_PATH"] = SandboxDownloader.binDir(context).absolutePath
 
             pb.redirectErrorStream(false)
             val process = pb.start()
