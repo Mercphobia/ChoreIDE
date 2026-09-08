@@ -28,20 +28,12 @@ object ProjectScaffolder {
             File(resDir, "layout").mkdirs()
             File(resDir, "values").mkdirs()
 
-            // AndroidManifest.xml
-            File(root, "app/src/main/AndroidManifest.xml")
-                .writeText(manifest(options))
-
-            // MainActivity in the chosen language
-            val activityName = "MainActivity.${options.language.extension}"
+            File(root, "app/src/main/AndroidManifest.xml").writeText(manifest(options))
+            val activityName = "MainActivity." + options.language.extension
             File(srcDir, activityName).writeText(mainActivity(options))
-
-            // Layout + strings
             File(resDir, "layout/activity_main.xml").writeText(mainLayout(options))
             File(resDir, "values/strings.xml").writeText(stringsXml(options))
-
-            // Gradle scripts in the chosen DSL
-            File(root, "app/${options.dsl.fileName}").writeText(appGradle(options))
+            File(root, "app/" + options.dsl.fileName).writeText(appGradle(options))
             File(root, "settings.gradle.kts").writeText(settingsGradle(safeName))
 
             Result.success(root)
@@ -61,7 +53,7 @@ object ProjectScaffolder {
     <application
         android:allowBackup="true"
         android:label="@string/app_name"
-        android:theme="$theme">
+        android:theme="THEME_PLACEHOLDER">
 
         <activity
             android:name=".MainActivity"
@@ -73,11 +65,12 @@ object ProjectScaffolder {
         </activity>
     </application>
 </manifest>
-"""
+""".replace("THEME_PLACEHOLDER", theme)
     }
 
-    private fun mainActivity(o: WizardOptions): String = when (o.language) {
-        SourceLanguage.KOTLIN -> """package ${o.packageName}
+    private fun mainActivity(o: WizardOptions): String {
+        return if (o.language == SourceLanguage.KOTLIN) {
+            """package ${o.packageName}
 
 import android.app.Activity
 import android.os.Bundle
@@ -89,7 +82,8 @@ class MainActivity : Activity() {
     }
 }
 """
-        SourceLanguage.JAVA -> """package ${o.packageName};
+        } else {
+            """package ${o.packageName};
 
 import android.app.Activity;
 import android.os.Bundle;
@@ -102,6 +96,7 @@ public class MainActivity extends Activity {
     }
 }
 """
+        }
     }
 
     private fun mainLayout(o: WizardOptions): String = """<?xml version="1.0" encoding="utf-8"?>
@@ -119,37 +114,42 @@ public class MainActivity extends Activity {
 """
 
     private fun stringsXml(o: WizardOptions): String = """<resources>
-    <string name="app_name">${o.projectName
-    /** app-level build script with local libs/ classpath mapping. */
-    private fun appGradle(o: WizardOptions): String = when (o.dsl) {
-        BuildDsl.KOTLIN_DSL -> """plugins {
+    <string name="app_name">${o.projectName}</string>
+</resources>
+"""
+
+    private fun appGradle(o: WizardOptions): String {
+        return if (o.dsl == BuildDsl.KOTLIN_DSL) {
+            val kotlinPlugin = if (o.language == SourceLanguage.KOTLIN)
+                "    id(\"org.jetbrains.kotlin.android\")\n" else ""
+            """plugins {
     id("com.android.application")
-${if (o.language == SourceLanguage.KOTLIN) "    id(\"org.jetbrains.kotlin.android\")" else ""}
-}
+""" + kotlinPlugin + """}
 
 android {
-    namespace = \"${o.packageName}\"
+    namespace = "${o.packageName}"
     compileSdk = ${o.targetSdk}
 
     defaultConfig {
-        applicationId = \"${o.packageName}\"
+        applicationId = "${o.packageName}"
         minSdk = ${o.minSdk}
         targetSdk = ${o.targetSdk}
         versionCode = 1
-        versionName = \"1.0\"
+        versionName = "1.0"
     }
 }
 
-// Offline-first: resolve every dependency from the local libs/ folder
-// injected by ChoreIDE (AndroidX + Material 3 aar/jar, android.jar stubs).
+// Offline-first: resolve dependencies from local libs/ injected by ChoreIDE
 dependencies {
-    implementation(fileTree(mapOf(\"dir\" to \"libs\", \"include\" to listOf(\"*.jar\", \"*.aar\"))))
+    implementation(fileTree(mapOf("dir" to "libs", "include" to listOf("*.jar", "*.aar"))))
 }
 """
-        BuildDsl.GROOVY -> """plugins {
+        } else {
+            val kotlinPlugin = if (o.language == SourceLanguage.KOTLIN)
+                "    id 'org.jetbrains.kotlin.android'\n" else ""
+            """plugins {
     id 'com.android.application'
-${if (o.language == SourceLanguage.KOTLIN) "    id 'org.jetbrains.kotlin.android'" else ""}
-}
+""" + kotlinPlugin + """}
 
 android {
     namespace '${o.packageName}'
@@ -164,11 +164,12 @@ android {
     }
 }
 
-// Offline-first: resolve every dependency from the local libs/ folder
+// Offline-first: resolve dependencies from local libs/ injected by ChoreIDE
 dependencies {
     implementation fileTree(dir: 'libs', include: ['*.jar', '*.aar'])
 }
 """
+        }
     }
 
     private fun settingsGradle(projectName: String): String = """pluginManagement {
@@ -186,9 +187,7 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = \"$projectName\"
-include(\":app\")
+rootProject.name = "$projectName"
+include(":app")
 """
-}
-
 }
