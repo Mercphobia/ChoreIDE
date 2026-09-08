@@ -61,5 +61,8 @@ dependencies {
     // Git
     implementation("org.eclipse.jgit:org.eclipse.jgit:6.8.0.202311291450-r")
 
+    // Sora code editor
+    implementation("io.github.Rosemoe.sora-editor:editor:0.23.4")
+
     debugImplementation("androidx.compose.ui:ui-tooling")
 }
