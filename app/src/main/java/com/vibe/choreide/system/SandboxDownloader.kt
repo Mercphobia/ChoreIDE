@@ -203,7 +203,7 @@ object SandboxDownloader {
         return try {
             val json = httpGet(apiUrl) ?: return null
             // Minimal JSON scraping - avoids a full JSON dependency for one field
-            val regex = Regex("\"browser_download_url\"\s*:\s*\"([^\"]+)\"")
+            val regex = Regex("\"browser_download_url\"\\s*:\\s*\"([^\"]+)\"")
             regex.findAll(json)
                 .map { it.groupValues[1] }
                 .firstOrNull {
