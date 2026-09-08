@@ -20,6 +20,7 @@ import com.vibe.choreide.ui.screens.EditorScreen
 import com.vibe.choreide.ui.screens.MockupScreen
 import com.vibe.choreide.ui.screens.ProjectScreen
 import com.vibe.choreide.ui.screens.TerminalScreen
+import com.vibe.choreide.ui.screens.WizardScreen
 import com.vibe.choreide.ui.theme.ChoreIDETheme
 import org.lsposed.hiddenapibypass.HiddenApiBypass
 
@@ -50,15 +51,18 @@ class MainActivity : ComponentActivity() {
                 val navController = rememberNavController()
                 val backStackEntry by navController.currentBackStackEntryAsState()
                 val currentRoute = backStackEntry?.destination?.route ?: "editor"
+                val showBottomBar = currentRoute != "wizard"
 
                 Scaffold(
                     modifier = Modifier.fillMaxSize(),
                     bottomBar = {
-                        BottomNavBar(currentRoute = currentRoute) { route ->
-                            navController.navigate(route) {
-                                popUpTo("editor") { saveState = true }
-                                launchSingleTop = true
-                                restoreState = true
+                        if (showBottomBar) {
+                            BottomNavBar(currentRoute = currentRoute) { route ->
+                                navController.navigate(route) {
+                                    popUpTo("editor") { saveState = true }
+                                    launchSingleTop = true
+                                    restoreState = true
+                                }
                             }
                         }
                     }
@@ -66,8 +70,15 @@ class MainActivity : ComponentActivity() {
                     Surface(modifier = Modifier.padding(innerPadding)) {
                         NavHost(
                             navController = navController,
-                            startDestination = "editor"
+                            startDestination = "wizard"
                         ) {
+                            composable("wizard") {
+                                WizardScreen(onProjectCreated = {
+                                    navController.navigate("project") {
+                                        popUpTo("wizard") { inclusive = true }
+                                    }
+                                })
+                            }
                             composable("editor") { EditorScreen() }
                             composable("project") { ProjectScreen() }
                             composable("terminal") { TerminalScreen() }
