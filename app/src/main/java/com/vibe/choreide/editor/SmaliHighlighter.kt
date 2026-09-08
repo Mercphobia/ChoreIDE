@@ -27,7 +27,7 @@ object SmaliHighlighter {
     private val COMMENT_COLOR = 0xFF808080.toInt()     // grey
     private val STRING_COLOR = 0xFFCE9178.toInt()      // light brown
 
-    private val directive = Pattern.compile("^\s*\.[a-z][a-z0-9-]*")
+    private val directive = Pattern.compile("^\\s*\\.[a-z][a-z0-9-]*", Pattern.MULTILINE)
     private val opcode = Pattern.compile(
         "\b(invoke-[a-z-]+|move[a-z0-9/-]*|const[a-z0-9/-]*|return[a-z-]*|" +
                 "if-[a-z]+|goto[a-z0-9/]*|new-instance|check-cast|instance-of|" +
@@ -36,7 +36,7 @@ object SmaliHighlighter {
                 "rem-[a-z]+|and-[a-z]+|or-[a-z]+|xor-[a-z]+|cmp[a-z-]*|" +
                 "throw|monitor-[a-z]+|array-length|fill-array-data)\b")
     private val register = Pattern.compile("\b[vp][0-9]+\b")
-    private val type = Pattern.compile("L[a-zA-Z0-9_/$]+;|\[[LZBSCIJFDV]|\b[VZBSCIJFD]\b")
+    private val type = Pattern.compile("L[a-zA-Z0-9_/$]+;|\\[[LZBSCIJFDV]|\\b[VZBSCIJFD]\\b")
     private val comment = Pattern.compile("#.*$", Pattern.MULTILINE)
     private val string = Pattern.compile("\"[^\"\n]*\"")
 
